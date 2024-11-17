@@ -114,9 +114,9 @@ This project is licensed under the [MIT License](LICENSE).
 ## 📫 Contact  
 
 If you have any questions or feedback, feel free to reach out:  
-- **Email**: [your-email@example.com](mailto:nalawadeaditya017@gmail.com)  
-- **LinkedIn**: [Your LinkedIn]([https://linkedin.com/in/your-profile](https://www.linkedin.com/in/aditya-nalawade-a4b081297/))  
-- **GitHub**: [Your GitHub](https://github.com/Adiiiicodes)  
+- **Email**: [nalawadeaditya017@gmail.com](mailto:nalawadeaditya017@gmail.com)  
+- **LinkedIn**: [Aditya Nalawade]([https://linkedin.com/in/your-profile](https://www.linkedin.com/in/aditya-nalawade-a4b081297/))  
+- **GitHub**: [Adiiiicodes](https://github.com/Adiiiicodes)  
 
 ---
 
@@ -130,9 +130,8 @@ If you have any questions or feedback, feel free to reach out:
 **Let’s make transcriptions easier, one video at a time!** 🎉  
 ```
 
-### How to Use It  
-
-- Replace `your-username`, `your-email@example.com`, and LinkedIn/GitHub profile links with your actual details.  
+### How to Use It
+  
 - If you have additional dependencies or special instructions for running the app, include them under **Requirements** or **Installation**.  
 
 This README should provide clear documentation and attract collaborators or users to your project! 🚀
