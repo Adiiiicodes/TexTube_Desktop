@@ -27,6 +27,10 @@ class TranscriptionWorker(threading.Thread):
         self.url = url
         self.model_size = model_size
         self.signals = WorkerSignals()
+        # Initialize Vosk model
+        from vosk import Model, SpkRecognizer
+        self.model = Model(r"D:\PP\TexTube_desktop\vosk-model-hi-0.22")
+        self.recognizer = SpkRecognizer(self.model, 16000)
 
     def download_audio_with_ytdlp(self, url, output_file="downloaded_audio.wav"):
         ydl_opts = {
@@ -59,6 +63,22 @@ class TranscriptionWorker(threading.Thread):
         result = model.transcribe(filename)
         return result["text"]
 
+    def transcribe_audio_vosk(self, filename):
+        import wave
+        wf = wave.open(filename, "rb")
+        if wf.getnchannels() != 1 or wf.getsampwidth() != 2 or wf.getcomptype() != "NONE":
+            raise ValueError("Audio file must be WAV format mono PCM")
+            
+        results = []
+        while True:
+            data = wf.readframes(4000)
+            if len(data) == 0:
+                break
+            if self.recognizer.AcceptWaveform(data):
+                results.append(self.recognizer.Result())
+        results.append(self.recognizer.FinalResult())
+        return " ".join([json.loads(x)['text'] for x in results if x])
+
     def run(self):
         try:
             download_path = "downloaded_audio.wav"
@@ -78,7 +98,7 @@ class TranscriptionWorker(threading.Thread):
             for i, chunk in enumerate(audio_chunks, 1):
                 self.signals.progress.emit(f"Transcribing part {i} of {len(audio_chunks)}...", 
                                         int(chunk_progress))
-                transcription = self.transcribe_audio_whisper(chunk)
+                transcription = self.transcribe_audio_vosk(chunk)
                 full_transcription += transcription + "\n"
                 os.remove(chunk)
                 chunk_progress += progress_per_chunk
