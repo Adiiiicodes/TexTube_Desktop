@@ -1,5 +1,5 @@
 # Virtual environment
 venv/
 
-# Vosk models
+# Vosk models#
 /vosk-model-hi-0.22/

@@ -4,12 +4,10 @@ import threading
 import warnings
 from pytube import YouTube
 from pydub import AudioSegment
-import whisper
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QLabel, 
-    QLineEdit, QPushButton, QTextEdit, QHBoxLayout, QFrame, QProgressBar,
-    QRadioButton, QButtonGroup, QMessageBox)
-from PyQt5.QtCore import Qt, pyqtSignal, QObject
-from PyQt5.QtGui import QPalette, QColor, QFont
+    QLineEdit, QPushButton, QTextEdit, QHBoxLayout, QFrame, QProgressBar,)
+from PyQt5.QtCore import pyqtSignal, QObject
+from PyQt5.QtGui import QFont
 import yt_dlp
 
 # Suppress warnings
@@ -22,15 +20,14 @@ class WorkerSignals(QObject):
     transcription = pyqtSignal(str)
 
 class TranscriptionWorker(threading.Thread):
-    def __init__(self, url, model_size):
+    def __init__(self, url):
         super().__init__()
         self.url = url
-        self.model_size = model_size
         self.signals = WorkerSignals()
         # Initialize Vosk model
-        from vosk import Model, SpkRecognizer
-        self.model = Model(r"D:\PP\TexTube_desktop\vosk-model-hi-0.22")
-        self.recognizer = SpkRecognizer(self.model, 16000)
+        from vosk import Model, KaldiRecognizer  # Corrected import
+        self.model = Model(r"D:\PP\TexTube_desktop\vosk-model-hi-0.22\vosk-model-hi-0.22")
+        self.recognizer = KaldiRecognizer(self.model, 16000)  # Corrected class
 
     def download_audio_with_ytdlp(self, url, output_file="downloaded_audio.wav"):
         ydl_opts = {
@@ -50,6 +47,8 @@ class TranscriptionWorker(threading.Thread):
 
     def split_audio(self, input_file, chunk_length_ms=30000):
         audio = AudioSegment.from_file(input_file)
+        audio = audio.set_channels(1)  # Ensure mono
+        audio = audio.set_sample_width(2)  # Ensure 16-bit PCM
         chunks = []
         for i in range(0, len(audio), chunk_length_ms):
             chunk = audio[i:i + chunk_length_ms]
@@ -59,12 +58,14 @@ class TranscriptionWorker(threading.Thread):
         return chunks
 
     def transcribe_audio_whisper(self, filename):
+        # REMOVE THIS ENTIRE FUNCTION
         model = whisper.load_model(self.model_size)
         result = model.transcribe(filename)
         return result["text"]
 
     def transcribe_audio_vosk(self, filename):
         import wave
+        import json  # Add missing import
         wf = wave.open(filename, "rb")
         if wf.getnchannels() != 1 or wf.getsampwidth() != 2 or wf.getcomptype() != "NONE":
             raise ValueError("Audio file must be WAV format mono PCM")
@@ -113,100 +114,6 @@ class TranscriptionWorker(threading.Thread):
 
         except Exception as e:
             self.signals.error.emit(str(e))
-
-class ModelSelectionFrame(QFrame):
-    def __init__(self):
-        super().__init__()
-        self.setStyleSheet("""
-            ModelSelectionFrame {
-                background-color: #2A2A2A;
-                border-radius: 10px;
-                border: 1px solid #3A3A3A;
-                padding: 10px;
-                margin: 10px 0;
-            }
-            QRadioButton {
-                color: #00FFFF;
-                padding: 5px;
-                spacing: 5px;
-            }
-            QRadioButton::indicator {
-                width: 15px;
-                height: 15px;
-            }
-            QRadioButton::indicator:checked {
-                background-color: #008B8B;
-                border: 2px solid #00FFFF;
-                border-radius: 7px;
-            }
-            QRadioButton::indicator:unchecked {
-                background-color: #2A2A2A;
-                border: 2px solid #3A3A3A;
-                border-radius: 7px;
-            }
-            QLabel {
-                color: #FF6B6B;
-                padding: 5px;
-            }
-        """)
-        self.initUI()
-
-    def initUI(self):
-        layout = QVBoxLayout()
-        
-        # Title
-        title = QLabel("Model Selection")
-        title.setFont(QFont('Arial', 12, QFont.Bold))
-        title.setStyleSheet("color: #00FFFF;")
-        layout.addWidget(title)
-
-        # Model selection radio buttons
-        self.model_group = QButtonGroup()
-        
-        models = [
-            ("Base", "Fastest - Good for English"),
-            ("Small", "Fast - Better for multiple languages"),
-            ("Medium", "Slower - High accuracy"),
-            ("Large", "Slowest - Highest accuracy")
-        ]
-        
-        for i, (model, desc) in enumerate(models):
-            radio = QRadioButton(f"{model} ({desc})")
-            self.model_group.addButton(radio, i)
-            layout.addWidget(radio)
-            if model == "Base":  # Default selection
-                radio.setChecked(True)
-
-        # Notice section
-        notice_text = """
-<span style='color: #FF6B6B; font-weight: bold;'>Notice Regarding Model Selection and System Requirements</span><br><br>
-<span style='color: #00FFFF;'>
-• As you increase the model size, accuracy improves, but processing time increases significantly.<br><br>
-• <span style='color: #FF6B6B; font-weight: bold;'>Important:</span> "Large" mode requires:<br>
-  - Intel Core i7 processor (or equivalent)<br>
-  - Minimum 16GB RAM<br>
-  Using "Large" mode below these specs may harm your device.<br><br>
-• "Base" mode provides sufficient accuracy for English language videos.<br><br>
-• For international languages or lower quality audio, use "Small" or "Medium" models.
-</span>
-"""
-        notice = QLabel(notice_text)
-        notice.setWordWrap(True)
-        notice.setTextFormat(Qt.RichText)
-        notice.setStyleSheet("""
-            QLabel {
-                background-color: #232323;
-                border-radius: 5px;
-                padding: 10px;
-                margin-top: 10px;
-            }
-        """)
-        layout.addWidget(notice)
-        
-        self.setLayout(layout)
-
-    def get_selected_model(self):
-        return ["base", "small", "medium", "large"][self.model_group.checkedId()]
 
 class ModernFrame(QFrame):
     def __init__(self):
@@ -287,9 +194,8 @@ class TranscriptionApp(QWidget):
         left_layout.addWidget(url_label)
         left_layout.addWidget(self.url_input)
 
-        # Add model selection frame
-        self.model_selection = ModelSelectionFrame()
-        left_layout.addWidget(self.model_selection)
+       
+       
         
         # Transcribe button
         self.transcribe_button = QPushButton('Start Transcription')
@@ -355,27 +261,14 @@ class TranscriptionApp(QWidget):
             self.progress_output.append("Please enter a YouTube URL")
             return
 
-        selected_model = self.model_selection.get_selected_model()
-        
-        # Additional warning for large model
-        if selected_model == "large":
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Warning)
-            msg.setText("You've selected the 'Large' model")
-            msg.setInformativeText("This model requires high system specifications (Intel Core i7 or equivalent, 16GB+ RAM). "
-                                 "Using it on lower-spec systems may cause issues. Do you want to continue?")
-            msg.setWindowTitle("Performance Warning")
-            msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-            
-            if msg.exec_() == QMessageBox.No:
-                return
-
+        # Remove all model selection related code
+        self.worker = TranscriptionWorker(video_url)
         self.transcribe_button.setEnabled(False)
         self.progress_output.clear()
         self.transcription_output.clear()
         self.progress_bar.setValue(0)
 
-        self.worker = TranscriptionWorker(video_url, selected_model)
+        # Connect signals
         self.worker.signals.progress.connect(self.update_progress)
         self.worker.signals.transcription.connect(self.update_transcription)
         self.worker.signals.error.connect(self.handle_error)
